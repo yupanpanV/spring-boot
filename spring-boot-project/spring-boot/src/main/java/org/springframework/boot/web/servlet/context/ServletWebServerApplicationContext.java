@@ -130,9 +130,16 @@ public class ServletWebServerApplicationContext extends GenericWebApplicationCon
 	 */
 	@Override
 	protected void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) {
+		// 此方法重写了父类的postProcessBeanFactory
+
+
+		// 注册bean后置处理器  WebApplicationContextServletContextAwareProcessor
+		// 让这个bean可以拿到  ServletContext 和 ServletConfig
 		beanFactory.addBeanPostProcessor(
 				new WebApplicationContextServletContextAwareProcessor(this));
+		// 忽略依赖的接口
 		beanFactory.ignoreDependencyInterface(ServletContextAware.class);
+		// 注册 ExistingWebApplicationScopes
 		registerWebApplicationScopes();
 	}
 
@@ -149,6 +156,10 @@ public class ServletWebServerApplicationContext extends GenericWebApplicationCon
 
 	@Override
 	protected void onRefresh() {
+
+		// 完成 WebServer 的创建（不包括启动）
+
+
 		super.onRefresh();
 		try {
 			createWebServer();
@@ -174,6 +185,7 @@ public class ServletWebServerApplicationContext extends GenericWebApplicationCon
 	}
 
 	private void createWebServer() {
+		// 创建WebServer
 		WebServer webServer = this.webServer;
 		ServletContext servletContext = getServletContext();
 		if (webServer == null && servletContext == null) {

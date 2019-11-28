@@ -52,6 +52,7 @@ import org.springframework.web.context.support.AnnotationConfigWebApplicationCon
  * @see #scan(String...)
  * @see ServletWebServerApplicationContext
  * @see AnnotationConfigWebApplicationContext
+ * SpringBoot中的业务容器
  */
 public class AnnotationConfigServletWebServerApplicationContext
 		extends ServletWebServerApplicationContext implements AnnotationConfigRegistry {

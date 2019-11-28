@@ -49,15 +49,20 @@ public class DelegatingApplicationContextInitializer implements
 
 	@Override
 	public void initialize(ConfigurableApplicationContext context) {
+		// 获得环境变量配置的 ApplicationContextInitializer 集合们
 		ConfigurableEnvironment environment = context.getEnvironment();
 		List<Class<?>> initializerClasses = getInitializerClasses(environment);
+
+		// 如果非空，则进行初始化
 		if (!initializerClasses.isEmpty()) {
 			applyInitializerClasses(context, initializerClasses);
 		}
 	}
 
 	private List<Class<?>> getInitializerClasses(ConfigurableEnvironment env) {
+		// 获得环境变量配置的属性
 		String classNames = env.getProperty(PROPERTY_NAME);
+		// 拼装成数组，按照 ，分隔
 		List<Class<?>> classes = new ArrayList<>();
 		if (StringUtils.hasLength(classNames)) {
 			for (String className : StringUtils.tokenizeToStringArray(classNames, ",")) {

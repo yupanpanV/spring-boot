@@ -159,10 +159,17 @@ public class ConfigFileApplicationListener
 
 	@Override
 	public void onApplicationEvent(ApplicationEvent event) {
+
+		// 收到ApplicationEvent
+
+
+		// 环境相关的事件
 		if (event instanceof ApplicationEnvironmentPreparedEvent) {
 			onApplicationEnvironmentPreparedEvent(
 					(ApplicationEnvironmentPreparedEvent) event);
 		}
+
+		// 容器启动相关的事件
 		if (event instanceof ApplicationPreparedEvent) {
 			onApplicationPreparedEvent(event);
 		}
@@ -170,9 +177,16 @@ public class ConfigFileApplicationListener
 
 	private void onApplicationEnvironmentPreparedEvent(
 			ApplicationEnvironmentPreparedEvent event) {
+		// 环境相关的事件
+
+		// 从 META-INF/spring.factories 加载环境相关的后置处理器
 		List<EnvironmentPostProcessor> postProcessors = loadPostProcessors();
+		// 把自己也置为后置处理器并排序
 		postProcessors.add(this);
 		AnnotationAwareOrderComparator.sort(postProcessors);
+
+
+		// 挨个进行后置处理
 		for (EnvironmentPostProcessor postProcessor : postProcessors) {
 			postProcessor.postProcessEnvironment(event.getEnvironment(),
 					event.getSpringApplication());
@@ -180,6 +194,8 @@ public class ConfigFileApplicationListener
 	}
 
 	List<EnvironmentPostProcessor> loadPostProcessors() {
+
+		// 加载环境相关的后置处理器
 		return SpringFactoriesLoader.loadFactories(EnvironmentPostProcessor.class,
 				getClass().getClassLoader());
 	}
@@ -187,10 +203,14 @@ public class ConfigFileApplicationListener
 	@Override
 	public void postProcessEnvironment(ConfigurableEnvironment environment,
 			SpringApplication application) {
+		// 环境后置处理
+
+		// 把  环境 跟 Spring资源加载器 封装成一个 Loader  并加载
 		addPropertySources(environment, application.getResourceLoader());
 	}
 
 	private void onApplicationPreparedEvent(ApplicationEvent event) {
+		// 容器启动相关的事件
 		this.logger.switchTo(ConfigFileApplicationListener.class);
 		addPostProcessors(((ApplicationPreparedEvent) event).getApplicationContext());
 	}
@@ -203,7 +223,10 @@ public class ConfigFileApplicationListener
 	 */
 	protected void addPropertySources(ConfigurableEnvironment environment,
 			ResourceLoader resourceLoader) {
+
+		// 添加 RandomValuePropertySource 到 environment 中
 		RandomValuePropertySource.addToEnvironment(environment);
+		// 创建 Loader 对象，进行加载
 		new Loader(environment, resourceLoader).load();
 	}
 
@@ -290,20 +313,21 @@ public class ConfigFileApplicationListener
 
 		private final Log logger = ConfigFileApplicationListener.this.logger;
 
+		/**环境*/
 		private final ConfigurableEnvironment environment;
-
+		/**占位符处理器*/
 		private final PropertySourcesPlaceholdersResolver placeholdersResolver;
-
+		/**资源加载器*/
 		private final ResourceLoader resourceLoader;
-
+		/** .properties 和 .yml 文件加载器*/
 		private final List<PropertySourceLoader> propertySourceLoaders;
-
+		/**双端队列保存Profile*/
 		private Deque<Profile> profiles;
-
+		/**已经处理过的Profile*/
 		private List<Profile> processedProfiles;
 
 		private boolean activatedProfiles;
-
+		/**已经处理过的Profile跟 MutablePropertySources的映射*/
 		private Map<Profile, MutablePropertySources> loaded;
 
 		private Map<DocumentsCacheKey, List<Document>> loadDocumentsCache = new HashMap<>();
@@ -314,28 +338,54 @@ public class ConfigFileApplicationListener
 					this.environment);
 			this.resourceLoader = (resourceLoader != null) ? resourceLoader
 					: new DefaultResourceLoader();
+
+			// 从 META-INF/spring.factories 加载所有的PropertySourceLoader
+			// 默认情况下，返回的是 PropertiesPropertySourceLoader、YamlPropertySourceLoader 类
+			// 即默认只能处理 .properties 和 .yml 文件
 			this.propertySourceLoaders = SpringFactoriesLoader.loadFactories(
 					PropertySourceLoader.class, getClass().getClassLoader());
 		}
 
 		public void load() {
+			// 开始加载配置文件
+
+			// 实例化属性
 			this.profiles = new LinkedList<>();
 			this.processedProfiles = new LinkedList<>();
 			this.activatedProfiles = false;
 			this.loaded = new LinkedHashMap<>();
+
+			// 初始化所有Profile    把Profile放到this.profiles 这个容器中
 			initializeProfiles();
+
+			// 挨个加载
 			while (!this.profiles.isEmpty()) {
+				// 取出一个profile
 				Profile profile = this.profiles.poll();
+
+				// 放到environment 的 ActiveProfile 中
+				// 其实就是保存 "正常的" profile
 				if (profile != null && !profile.isDefaultProfile()) {
 					addProfileToEnvironment(profile.getName());
 				}
+
+				// 正式加载跟这个profile 相关的配置
 				load(profile, this::getPositiveProfileFilter,
 						addToLoaded(MutablePropertySources::addLast, false));
+
+				// 把这个profile 置入已处理集合中
 				this.processedProfiles.add(profile);
 			}
+			// 把处理过的Profile（剔除空的profile和默认profile） 存到环境中去
+			// 其中上面的循环已经处理过这个事情 这里又重新来了一道    （不知道为啥子要这样）
 			resetEnvironmentProfiles(this.processedProfiles);
+
+			// 加载配置 （跟循环里面的差不多，仅仅是一个参数为为null，而在循环里面实际上是调用过第一个参数为null）
 			load(null, this::getNegativeProfileFilter,
 					addToLoaded(MutablePropertySources::addFirst, true));
+
+
+			// 将加载的配置对应的 MutablePropertySources 到 environment 中（还没看明白）
 			addLoadedPropertySources();
 		}
 
@@ -692,14 +742,21 @@ public class ConfigFileApplicationListener
 		 * @param processedProfiles the processed profiles
 		 */
 		private void resetEnvironmentProfiles(List<Profile> processedProfiles) {
+
+			// 把处理过的Profile（剔除空的profile和默认profile） 存到环境中去
+
+			// 剔除空的profile和默认profile
 			String[] names = processedProfiles.stream()
 					.filter((profile) -> profile != null && !profile.isDefaultProfile())
 					.map(Profile::getName).toArray(String[]::new);
+			// 先清空原有的ActiveProfiles 再把names放进去
 			this.environment.setActiveProfiles(names);
 		}
 
 		private void addLoadedPropertySources() {
+
 			MutablePropertySources destination = this.environment.getPropertySources();
+			// 获得当前加载的 MutablePropertySources 集合
 			List<MutablePropertySources> loaded = new ArrayList<>(this.loaded.values());
 			Collections.reverse(loaded);
 			String lastAdded = null;
